@@ -2,3 +2,4 @@ state_CA.csv
 .venv/
 __pycache__/
 .ipynb_checkpoints/
+flight-kit/
