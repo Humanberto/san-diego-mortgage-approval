@@ -12,4 +12,4 @@ COPY predict.py model_2025.bin ./
 
 EXPOSE 9696
 
-ENTRYPOINT ["uvicorn", "predict:app", "--host", "0.0.0.0", "--port", "9696"]
+CMD ["sh", "-c", "uvicorn predict:app --host 0.0.0.0 --port ${PORT:-9696}"]
