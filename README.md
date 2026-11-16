@@ -6,9 +6,12 @@ Will a San Diego mortgage application be approved or denied? This project trains
 
 ## The problem
 
-Buying a house (or any real estate) can be a very overwhelming experience, and getting a loan is probably the scariest and more complex part of it.
-Can a buyer even get approved for a loan? How much and at what rate?
-This tool is meant to measure a user's chance of loan approval.
+Buying a house (or any real estate) can be a very overwhelming experience, and getting a loan is probably the scariest and most complex part of it.
+
+Can a buyer even get approved for a loan? In 2025 there were 68,442 applications in San Diego County and 23% were denied.
+
+This tool is meant to measure a user's chance of loan approval by entering information on the purchase/refinance they want, and the result is a percentage of the probability.
+e.g. purchase price, loan amount, income, etc.; probability of 82%.
 
 ## The data
 
