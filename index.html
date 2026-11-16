@@ -21,7 +21,7 @@
   button:disabled { opacity: .6; cursor: wait; }
   .error { color: #a32d2d; font-size: 14px; margin-top: 12px; min-height: 1em; }
   #result { margin-top: 20px; background: #fff; border: 1px solid #e2e0d8; border-radius: 12px; padding: 24px; display: none; }
-  .pct { font-size: 48px; font-weight: 700; line-height: 1; }
+  .pct { font-size: 44px; font-weight: 700; line-height: 1; }
   .verdict { font-size: 18px; font-weight: 600; margin: 6px 0 14px; }
   .bar { height: 10px; background: #ece9e0; border-radius: 5px; overflow: hidden; }
   .bar span { display: block; height: 100%; width: 0; border-radius: 5px; transition: width .4s; }
@@ -37,7 +37,7 @@
 <body>
 <main>
   <h1>San Diego Mortgage Approval Predictor</h1>
-  <p class="lede">Enter the loan you want and get the chance it would be approved, based on all 68,442 San Diego County mortgage applications from 2025.</p>
+  <p class="lede">Enter the loan you want and get the chance it would be approved, based on all 68,442 San Diego County mortgage applications from 2025. Your debt-to-income ratio is worked out for you from the current average mortgage rate.</p>
 
   <form id="form" novalidate>
     <div class="grid">
@@ -88,9 +88,9 @@
         <span class="hint">Everyone on the loan combined.</span>
       </div>
       <div>
-        <label for="dti">Debt-to-income ratio (%)</label>
-        <input id="dti" type="number" min="0" max="200" step="1" placeholder="38" inputmode="numeric">
-        <span class="hint">Monthly debts, including the new mortgage payment, divided by monthly income.</span>
+        <label for="debts">Other monthly debt payments ($)</label>
+        <input id="debts" type="number" min="0" step="10" placeholder="600" inputmode="numeric">
+        <span class="hint">Car, student loans, credit card minimums. Enter 0 if none.</span>
       </div>
       <div>
         <label for="rate_type">Rate type</label>
@@ -126,6 +126,25 @@
 
 <script>
 const CONFORMING_LIMIT = 1077550;  // where the 2025 San Diego data switches from C to NC
+// Freddie Mac weekly average rates (PMMS, November 5, 2026). Update these now and then.
+const RATES = { 360: 7.18, 240: 7.18, 180: 6.57 };
+const RATES_DATE = 'Nov 5, 2026';
+const TAX_AND_INSURANCE = 0.0125;  // about 1.1% property tax + 0.15% insurance per year in San Diego
+
+function monthlyPayment(loan, years, ratePct) {
+  const r = ratePct / 100 / 12, n = years * 12;
+  return loan * r / (1 - Math.pow(1 + r, -n));
+}
+
+function estimate(v) {
+  // Same idea lenders use: (new housing payment + other debts) / gross monthly income
+  const rate = RATES[v.term];
+  const principalInterest = monthlyPayment(v.loan, v.term / 12, rate);
+  const taxInsurance = v.value * TAX_AND_INSURANCE / 12;
+  const housing = principalInterest + taxInsurance;
+  const dti = (housing + v.debts) / (v.income / 12) * 100;
+  return { rate, principalInterest, taxInsurance, housing, dti };
+}
 const PRODUCT = { conventional: 'Conventional', fha: 'FHA', va: 'VA', usda: 'FSA/RHS' };
 
 function dtiBin(dti) {
@@ -146,7 +165,7 @@ function buildApplicant(v) {
     lien_status: 'first',
     derived_loan_product_type: PRODUCT[v.loan_type] + ':First Lien',
     conforming_loan_limit: v.loan <= CONFORMING_LIMIT ? 'C' : 'NC',
-    debt_to_income_ratio: dtiBin(v.dti),
+    debt_to_income_ratio: dtiBin(estimate(v).dti),
     loan_amount: v.loan,
     property_value: v.value,
     loan_to_value_ratio: Math.round(v.loan / v.value * 1000) / 10,
@@ -180,7 +199,7 @@ function readForm() {
   return {
     purpose: val('purpose'), occupancy: val('occupancy'), loan_type: val('loan_type'),
     term: Number(val('term')), rate_type: Number(val('rate_type')), coapp: val('coapp'),
-    value: num('value'), loan: num('loan'), income: num('income'), dti: num('dti')
+    value: num('value'), loan: num('loan'), income: num('income'), debts: num('debts') || 0
   };
 }
 
@@ -188,8 +207,8 @@ function validate(v) {
   if (!(v.value > 0)) return 'Enter the home price or value.';
   if (!(v.loan > 0)) return 'Enter the loan amount.';
   if (v.loan > v.value * 1.5) return 'The loan amount looks too high for that home value.';
-  if (!(v.income >= 0) || Number.isNaN(v.income)) return 'Enter your yearly income.';
-  if (!(v.dti >= 0) || Number.isNaN(v.dti)) return 'Enter your debt-to-income ratio.';
+  if (!(v.income > 0)) return 'Enter your yearly income.';
+  if (v.debts < 0) return 'Monthly debts cannot be negative.';
   return '';
 }
 
@@ -202,6 +221,15 @@ form.addEventListener('submit', async (event) => {
   const v = readForm();
   const problem = validate(v);
   if (problem) { errorBox.textContent = problem; return; }
+  errorBox.textContent = '';
+
+  const e = estimate(v);
+  if (e.dti > 100) {
+    // Payment plus debts above 100% of income: no lender approves this, and the model
+    // never saw real applications like it, so we answer without asking the model.
+    showResult(null, v);
+    return;
+  }
 
   const button = document.getElementById('submit');
   button.disabled = true;
@@ -224,20 +252,47 @@ form.addEventListener('submit', async (event) => {
 });
 
 function showResult(p, v) {
+  if (p === null) {
+    document.getElementById('pct').textContent = 'Very unlikely';
+    document.getElementById('pct').className = 'pct bad';
+    document.getElementById('verdict').textContent =
+      'The new payment plus your other debts would be more than your whole income. Lenders usually stop around 43% to 50%.';
+    document.getElementById('verdict').className = 'verdict';
+    const bar = document.getElementById('bar');
+    bar.className = 'bad-bg';
+    bar.style.width = '2%';
+    writeDetails(v);
+    document.getElementById('result').style.display = 'block';
+    return;
+  }
   const pct = Math.round(p * 100);
   const tone = p >= 0.7 ? 'good' : p >= 0.5 ? 'mid' : 'bad';
   const words = p >= 0.7 ? 'Likely approved' : p >= 0.5 ? 'Leaning approved, but close' : 'Likely denied';
   document.getElementById('pct').textContent = pct + '%';
   document.getElementById('pct').className = 'pct ' + tone;
-  document.getElementById('verdict').textContent = words;
+  const e = estimate(v);
+  const note = (e.dti > 60 && v.loan_type !== 'va')
+    ? ' Careful: above 60% debt-to-income, only about 1 in 10 conventional and FHA home purchase applications were approved in 2025. The model is less reliable here.'
+    : '';
+  document.getElementById('verdict').textContent = words + '.' + note;
   document.getElementById('verdict').className = 'verdict ' + tone;
   const bar = document.getElementById('bar');
   bar.className = tone + '-bg';
   bar.style.width = pct + '%';
-  const ltv = Math.round(v.loan / v.value * 1000) / 10;
-  document.getElementById('ltv').textContent =
-    'Loan-to-value: ' + ltv + '%. Debt-to-income: ' + v.dti + '%.';
+  writeDetails(v);
   document.getElementById('result').style.display = 'block';
+}
+
+function writeDetails(v) {
+  const e = estimate(v);
+  const money = x => '$' + Math.round(x).toLocaleString('en-US');
+  const ltv = Math.round(v.loan / v.value * 1000) / 10;
+  const dti = e.dti > 999 ? 'over 999' : Math.round(e.dti);
+  document.getElementById('ltv').textContent =
+    'Estimated housing payment: ' + money(e.housing) + '/month (' + money(e.principalInterest) +
+    ' principal and interest at ' + e.rate + '%, the Freddie Mac average on ' + RATES_DATE + ', plus about ' +
+    money(e.taxInsurance) + ' for property tax and insurance). Debt-to-income: ' + dti +
+    '%. Loan-to-value: ' + ltv + '%.';
 }
 </script>
 </body>
