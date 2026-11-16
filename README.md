@@ -128,6 +128,28 @@ docker run -it --rm -p 9696:9696 mortgage-approval
 
 Then run `uv run python test_predict.py` in a second terminal, or open http://localhost:9696/docs.
 
+
+## Cloud deployment
+
+The service is deployed on [Render](https://render.com) (free plan), built from this repo's Dockerfile.
+
+**Live URL:** https://san-diego-mortgage-approval.onrender.com/docs
+
+The free plan sleeps after 15 minutes without traffic, so the first request can take about a minute.
+
+Test it from your machine:
+```
+uv run python test_predict.py https://san-diego-mortgage-approval.onrender.com/docs
+```
+
+How it was deployed:
+1. Sign in to render.com with GitHub.
+2. New → Web Service → pick this repo. Render detects the Dockerfile.
+3. Instance type: Free → Deploy.
+
+Render tells the app which port to listen on through the `PORT` environment variable. The Dockerfile's `CMD` uses it and falls back to 9696 when you run it locally.
+
+
 ## Project files
 
 | File | What it is |
