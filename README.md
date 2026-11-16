@@ -153,6 +153,15 @@ How it was deployed:
 
 Render tells the app which port to listen on through the `PORT` environment variable. The Dockerfile's `CMD` uses it and falls back to 9696 when you run it locally.
 
+## Why a front end
+
+Without a front end, it felt confusing to understand exactly how this model would be useful, which is why I decided to build it this way.
+
+What the form does differently from the raw API: someone enters about 10 things they actually know (price, loan amount, income, monthly debts), not 35 HMDA codes, and the form works out the rest, including DTI.
+
+Testing it as a real user is how I found that $30 income with a 30% DTI got 76% chance of approval. The model doesn’t check whether inputs make sense together, so the form now calculates DTI instead of asking for it.
+
+I used Claude Code to build most of the front end, since it isn’t part of the graded work.
 
 ## Project files
 
