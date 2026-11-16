@@ -117,7 +117,7 @@ as sent:           {'approval_probability': 0.855, 'approved': True}
 with DTI above 60%: {'approval_probability': 0.513, 'approved': True}
 ```
 
-You can also try it in the browser at http://localhost:9696/docs.
+You can also try it in the browser: http://localhost:9696 has a simple form, and http://localhost:9696/docs has the raw API.
 
 ### With Docker
 
@@ -126,20 +126,24 @@ docker build -t mortgage-approval .
 docker run -it --rm -p 9696:9696 mortgage-approval
 ```
 
-Then run `uv run python test_predict.py` in a second terminal, or open http://localhost:9696/docs.
+Then run `uv run python test_predict.py` in a second terminal, or open http://localhost:9696 for the form.
 
 
 ## Cloud deployment
 
 The service is deployed on [Render](https://render.com) (free plan), built from this repo's Dockerfile.
 
-**Live URL:** https://san-diego-mortgage-approval.onrender.com/docs
+**Live form:** https://san-diego-mortgage-approval.onrender.com
+
+**API docs:** https://san-diego-mortgage-approval.onrender.com/docs
+
+The form asks for the few things a buyer knows (price, loan amount, income, debt-to-income, loan type and purpose) and fills the rest of the model's inputs with the most common values for a single-family first mortgage. The lender and census tract are left blank, so the service fills them with the training defaults.
 
 The free plan sleeps after 15 minutes without traffic, so the first request can take about a minute.
 
 Test it from your machine:
 ```
-uv run python test_predict.py https://san-diego-mortgage-approval.onrender.com/docs
+uv run python test_predict.py https://san-diego-mortgage-approval.onrender.com/predict
 ```
 
 How it was deployed:
@@ -157,6 +161,7 @@ Render tells the app which port to listen on through the `PORT` environment vari
 | `notebook.ipynb` | Data cleaning, EDA, model training and selection |
 | `train.py` | Trains the final model and saves `model_2025.bin` |
 | `predict.py` | FastAPI web service |
+| `index.html` | Simple web form that calls the service |
 | `test_predict.py` | Sends a sample applicant to the service |
 | `Dockerfile` | Container for the service |
 | `pyproject.toml`, `uv.lock` | Dependencies |

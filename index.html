@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>San Diego Mortgage Approval Predictor</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #f5f4ef; color: #1f1f1d; line-height: 1.5; }
+  main { max-width: 640px; margin: 0 auto; padding: 32px 20px 48px; }
+  h1 { font-size: 26px; font-weight: 600; margin: 0 0 6px; }
+  .lede { margin: 0 0 24px; color: #55534d; }
+  form { background: #fff; border: 1px solid #e2e0d8; border-radius: 12px; padding: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; }
+  .full { grid-column: 1 / -1; }
+  label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .hint { display: block; font-size: 12px; font-weight: 400; color: #77756d; margin-top: 4px; }
+  input, select { width: 100%; padding: 10px 12px; font-size: 16px; border: 1px solid #cfccc2; border-radius: 8px; background: #fff; color: inherit; }
+  input:focus, select:focus { outline: 2px solid #1d6f5f; outline-offset: 1px; border-color: #1d6f5f; }
+  button { margin-top: 20px; width: 100%; padding: 12px; font-size: 16px; font-weight: 600; color: #fff; background: #1d6f5f; border: 0; border-radius: 8px; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: wait; }
+  .error { color: #a32d2d; font-size: 14px; margin-top: 12px; min-height: 1em; }
+  #result { margin-top: 20px; background: #fff; border: 1px solid #e2e0d8; border-radius: 12px; padding: 24px; display: none; }
+  .pct { font-size: 48px; font-weight: 700; line-height: 1; }
+  .verdict { font-size: 18px; font-weight: 600; margin: 6px 0 14px; }
+  .bar { height: 10px; background: #ece9e0; border-radius: 5px; overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 0; border-radius: 5px; transition: width .4s; }
+  .good { color: #1d6f5f; } .good-bg { background: #1d6f5f; }
+  .mid { color: #a86a10; } .mid-bg { background: #c98a1f; }
+  .bad { color: #a32d2d; } .bad-bg { background: #c24a4a; }
+  .ltv { font-size: 14px; color: #55534d; margin-top: 12px; }
+  footer { margin-top: 24px; font-size: 13px; color: #77756d; }
+  footer a { color: #1d6f5f; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>San Diego Mortgage Approval Predictor</h1>
+  <p class="lede">Enter the loan you want and get the chance it would be approved, based on all 68,442 San Diego County mortgage applications from 2025.</p>
+
+  <form id="form" novalidate>
+    <div class="grid">
+      <div>
+        <label for="purpose">What is the loan for?</label>
+        <select id="purpose">
+          <option value="purchase">Buying a home</option>
+          <option value="refinance">Refinance</option>
+          <option value="cash_out_refi">Cash-out refinance</option>
+        </select>
+      </div>
+      <div>
+        <label for="occupancy">How will you use the home?</label>
+        <select id="occupancy">
+          <option value="primary">I will live there</option>
+          <option value="second_home">Second home</option>
+          <option value="investment">Rental / investment</option>
+        </select>
+      </div>
+      <div>
+        <label for="loan_type">Loan type</label>
+        <select id="loan_type">
+          <option value="conventional">Conventional</option>
+          <option value="fha">FHA</option>
+          <option value="va">VA</option>
+          <option value="usda">USDA</option>
+        </select>
+      </div>
+      <div>
+        <label for="term">Loan term</label>
+        <select id="term">
+          <option value="360">30 years</option>
+          <option value="240">20 years</option>
+          <option value="180">15 years</option>
+        </select>
+      </div>
+      <div>
+        <label for="value">Home price or value ($)</label>
+        <input id="value" type="number" min="1" step="1000" placeholder="850000" inputmode="numeric">
+      </div>
+      <div>
+        <label for="loan">Loan amount ($)</label>
+        <input id="loan" type="number" min="1" step="1000" placeholder="680000" inputmode="numeric">
+      </div>
+      <div>
+        <label for="income">Yearly income before taxes ($)</label>
+        <input id="income" type="number" min="0" step="1000" placeholder="180000" inputmode="numeric">
+        <span class="hint">Everyone on the loan combined.</span>
+      </div>
+      <div>
+        <label for="dti">Debt-to-income ratio (%)</label>
+        <input id="dti" type="number" min="0" max="200" step="1" placeholder="38" inputmode="numeric">
+        <span class="hint">Monthly debts, including the new mortgage payment, divided by monthly income.</span>
+      </div>
+      <div>
+        <label for="rate_type">Rate type</label>
+        <select id="rate_type">
+          <option value="0">Fixed</option>
+          <option value="1">Adjustable (ARM)</option>
+        </select>
+      </div>
+      <div>
+        <label for="coapp">Applying with a co-borrower?</label>
+        <select id="coapp">
+          <option value="no">No</option>
+          <option value="yes">Yes</option>
+        </select>
+      </div>
+    </div>
+    <button id="submit" type="submit">Check my chances</button>
+    <div class="error" id="error" role="alert"></div>
+  </form>
+
+  <section id="result" aria-live="polite">
+    <div class="pct" id="pct"></div>
+    <div class="verdict" id="verdict"></div>
+    <div class="bar"><span id="bar"></span></div>
+    <div class="ltv" id="ltv"></div>
+  </section>
+
+  <footer>
+    An estimate from a random forest model (test AUC 0.87) trained on 2025 HMDA public data. It does not know your lender, credit score or full financial picture, and it is not a lending decision.
+    <br><a href="/docs">API docs</a> · <a href="https://github.com/Humanberto/san-diego-mortgage-approval">Source on GitHub</a>
+  </footer>
+</main>
+
+<script>
+const CONFORMING_LIMIT = 1077550;  // where the 2025 San Diego data switches from C to NC
+const PRODUCT = { conventional: 'Conventional', fha: 'FHA', va: 'VA', usda: 'FSA/RHS' };
+
+function dtiBin(dti) {
+  // HMDA reports DTI in ranges below 36% and above 49%, and as whole numbers in between
+  if (dti < 20) return '<20%';
+  if (dti < 30) return '20%-<30%';
+  if (dti < 36) return '30%-<36%';
+  if (dti < 50) return String(Math.floor(dti));
+  if (dti <= 60) return '50%-60%';
+  return '>60%';
+}
+
+function buildApplicant(v) {
+  return {
+    loan_purpose: v.purpose,
+    occupancy_type: v.occupancy,
+    loan_type: v.loan_type,
+    lien_status: 'first',
+    derived_loan_product_type: PRODUCT[v.loan_type] + ':First Lien',
+    conforming_loan_limit: v.loan <= CONFORMING_LIMIT ? 'C' : 'NC',
+    debt_to_income_ratio: dtiBin(v.dti),
+    loan_amount: v.loan,
+    property_value: v.value,
+    loan_to_value_ratio: Math.round(v.loan / v.value * 1000) / 10,
+    income: v.income / 1000,  // HMDA stores income in thousands
+    loan_term: v.term,
+    is_adjustable: v.rate_type,
+    'co-applicant_credit_score_type': v.coapp === 'yes' ? '1' : '10',
+    // Most common values for single-family first mortgages in the 2025 data
+    derived_dwelling_category: 'Single Family (1-4 Units):Site-Built',
+    total_units: '1',
+    construction_method: '1',
+    reverse_mortgage: '2',
+    'open-end_line_of_credit': '2',
+    business_or_commercial_purpose: '2',
+    negative_amortization: '2',
+    interest_only_payment: '2',
+    balloon_payment: '2',
+    other_nonamortizing_features: '2',
+    manufactured_home_secured_property_type: '3',
+    manufactured_home_land_property_interest: '5',
+    applicant_credit_score_type: '1',
+    submission_of_application: '1',
+    'aus-1': '1'
+    // lei (lender) and census tract columns are left out: the service fills them in
+  };
+}
+
+function readForm() {
+  const num = id => parseFloat(document.getElementById(id).value);
+  const val = id => document.getElementById(id).value;
+  return {
+    purpose: val('purpose'), occupancy: val('occupancy'), loan_type: val('loan_type'),
+    term: Number(val('term')), rate_type: Number(val('rate_type')), coapp: val('coapp'),
+    value: num('value'), loan: num('loan'), income: num('income'), dti: num('dti')
+  };
+}
+
+function validate(v) {
+  if (!(v.value > 0)) return 'Enter the home price or value.';
+  if (!(v.loan > 0)) return 'Enter the loan amount.';
+  if (v.loan > v.value * 1.5) return 'The loan amount looks too high for that home value.';
+  if (!(v.income >= 0) || Number.isNaN(v.income)) return 'Enter your yearly income.';
+  if (!(v.dti >= 0) || Number.isNaN(v.dti)) return 'Enter your debt-to-income ratio.';
+  return '';
+}
+
+const form = document.getElementById('form');
+const errorBox = document.getElementById('error');
+form.addEventListener('input', () => { errorBox.textContent = ''; });
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const v = readForm();
+  const problem = validate(v);
+  if (problem) { errorBox.textContent = problem; return; }
+
+  const button = document.getElementById('submit');
+  button.disabled = true;
+  button.textContent = 'Checking...';
+  try {
+    const response = await fetch('/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildApplicant(v))
+    });
+    if (!response.ok) throw new Error('status ' + response.status);
+    const data = await response.json();
+    showResult(data.approval_probability, v);
+  } catch (err) {
+    errorBox.textContent = 'Something went wrong talking to the model. Try again in a minute.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Check my chances';
+  }
+});
+
+function showResult(p, v) {
+  const pct = Math.round(p * 100);
+  const tone = p >= 0.7 ? 'good' : p >= 0.5 ? 'mid' : 'bad';
+  const words = p >= 0.7 ? 'Likely approved' : p >= 0.5 ? 'Leaning approved, but close' : 'Likely denied';
+  document.getElementById('pct').textContent = pct + '%';
+  document.getElementById('pct').className = 'pct ' + tone;
+  document.getElementById('verdict').textContent = words;
+  document.getElementById('verdict').className = 'verdict ' + tone;
+  const bar = document.getElementById('bar');
+  bar.className = tone + '-bg';
+  bar.style.width = pct + '%';
+  const ltv = Math.round(v.loan / v.value * 1000) / 10;
+  document.getElementById('ltv').textContent =
+    'Loan-to-value: ' + ltv + '%. Debt-to-income: ' + v.dti + '%.';
+  document.getElementById('result').style.display = 'block';
+}
+</script>
+</body>
+</html>

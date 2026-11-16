@@ -2,7 +2,7 @@
 
 Run from the project folder:
     uv run uvicorn predict:app --host 0.0.0.0 --port 9696
-Then open http://localhost:9696/docs to try it in the browser.
+Then open http://localhost:9696 for the form, or /docs for the raw API.
 """
 import os
 import pickle
@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 
 MODEL_PATH = os.getenv('MODEL_PATH', 'model_2025.bin')
 with open(MODEL_PATH, 'rb') as f_in:
@@ -31,6 +32,12 @@ def prepare(applicant: dict[str, Any]) -> dict[str, Any]:
             value = float(np.log1p(max(value, 0)))
         record[col] = value
     return record
+
+
+@app.get('/', include_in_schema=False)
+def form() -> FileResponse:
+    """The simple web form (index.html) that calls /predict."""
+    return FileResponse('index.html')
 
 
 @app.get('/health')

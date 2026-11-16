@@ -8,7 +8,7 @@ ENV PATH="/code/.venv/bin:$PATH"
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev
 
-COPY predict.py model_2025.bin ./
+COPY predict.py model_2025.bin index.html ./
 
 EXPOSE 9696
 
